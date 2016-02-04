@@ -17,57 +17,21 @@
  */
 package org.apache.hadoop.hbase.client;
 
-import static org.junit.Assert.assertTrue;
-import static org.junit.Assert.fail;
-
-import java.io.IOException;
-import java.net.SocketTimeoutException;
-import java.util.Comparator;
-import java.util.HashMap;
-import java.util.Map;
-import java.util.Random;
-import java.util.SortedMap;
-import java.util.concurrent.ConcurrentSkipListMap;
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
-import java.util.concurrent.atomic.AtomicInteger;
-import java.util.concurrent.atomic.AtomicLong;
-import org.apache.hadoop.hbase.CellComparator;
-
+import com.google.common.base.Stopwatch;
+import com.google.protobuf.ByteString;
+import com.google.protobuf.RpcController;
+import com.google.protobuf.ServiceException;
 import org.apache.commons.lang.NotImplementedException;
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.conf.Configured;
-import org.apache.hadoop.hbase.HBaseConfiguration;
-import org.apache.hadoop.hbase.HConstants;
-import org.apache.hadoop.hbase.HRegionInfo;
-import org.apache.hadoop.hbase.HRegionLocation;
-import org.apache.hadoop.hbase.KeyValue;
-import org.apache.hadoop.hbase.MetaTableAccessor;
-import org.apache.hadoop.hbase.RegionLocations;
-import org.apache.hadoop.hbase.RegionTooBusyException;
-import org.apache.hadoop.hbase.ServerName;
-import org.apache.hadoop.hbase.TableName;
+import org.apache.hadoop.hbase.*;
 import org.apache.hadoop.hbase.protobuf.generated.CellProtos;
 import org.apache.hadoop.hbase.protobuf.generated.ClientProtos;
-import org.apache.hadoop.hbase.protobuf.generated.ClientProtos.BulkLoadHFileRequest;
-import org.apache.hadoop.hbase.protobuf.generated.ClientProtos.BulkLoadHFileResponse;
-import org.apache.hadoop.hbase.protobuf.generated.ClientProtos.ClientService;
+import org.apache.hadoop.hbase.protobuf.generated.ClientProtos.*;
 import org.apache.hadoop.hbase.protobuf.generated.ClientProtos.ClientService.BlockingInterface;
-import org.apache.hadoop.hbase.protobuf.generated.ClientProtos.CoprocessorServiceRequest;
-import org.apache.hadoop.hbase.protobuf.generated.ClientProtos.CoprocessorServiceResponse;
-import org.apache.hadoop.hbase.protobuf.generated.ClientProtos.GetRequest;
-import org.apache.hadoop.hbase.protobuf.generated.ClientProtos.GetResponse;
-import org.apache.hadoop.hbase.protobuf.generated.ClientProtos.MultiRequest;
 import org.apache.hadoop.hbase.protobuf.generated.ClientProtos.MultiResponse;
-import org.apache.hadoop.hbase.protobuf.generated.ClientProtos.MutateRequest;
-import org.apache.hadoop.hbase.protobuf.generated.ClientProtos.MutateResponse;
-import org.apache.hadoop.hbase.protobuf.generated.ClientProtos.RegionAction;
-import org.apache.hadoop.hbase.protobuf.generated.ClientProtos.RegionActionResult;
-import org.apache.hadoop.hbase.protobuf.generated.ClientProtos.ResultOrException;
-import org.apache.hadoop.hbase.protobuf.generated.ClientProtos.ScanRequest;
-import org.apache.hadoop.hbase.protobuf.generated.ClientProtos.ScanResponse;
 import org.apache.hadoop.hbase.protobuf.generated.HBaseProtos.RegionSpecifier.RegionSpecifierType;
 import org.apache.hadoop.hbase.regionserver.RegionServerStoppedException;
 import org.apache.hadoop.hbase.security.User;
@@ -85,10 +49,18 @@ import org.junit.Test;
 import org.junit.experimental.categories.Category;
 import org.mockito.Mockito;
 
-import com.google.common.base.Stopwatch;
-import com.google.protobuf.ByteString;
-import com.google.protobuf.RpcController;
-import com.google.protobuf.ServiceException;
+import java.io.IOException;
+import java.net.SocketTimeoutException;
+import java.util.*;
+import java.util.concurrent.ConcurrentSkipListMap;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicInteger;
+import java.util.concurrent.atomic.AtomicLong;
+
+import static org.junit.Assert.assertTrue;
+import static org.junit.Assert.fail;
 
 /**
  * Test client behavior w/o setting up a cluster.
@@ -681,14 +653,14 @@ public class TestClientNoCluster extends Configured implements Tool {
     TableName tableName = TableName.valueOf(BIG_USER_TABLE);
     if (get) {
       try (Table table = sharedConnection.getTable(tableName)){
-        Stopwatch stopWatch = new Stopwatch();
+        Stopwatch stopWatch = Stopwatch.createUnstarted();
         stopWatch.start();
         for (int i = 0; i < namespaceSpan; i++) {
           byte [] b = format(rd.nextLong());
           Get g = new Get(b);
           table.get(g);
           if (i % printInterval == 0) {
-            LOG.info("Get " + printInterval + "/" + stopWatch.elapsedMillis());
+            LOG.info("Get " + printInterval + "/" + stopWatch.elapsed(TimeUnit.MILLISECONDS));
             stopWatch.reset();
             stopWatch.start();
           }
@@ -698,7 +670,7 @@ public class TestClientNoCluster extends Configured implements Tool {
       }
     } else {
       try (BufferedMutator mutator = sharedConnection.getBufferedMutator(tableName)) {
-        Stopwatch stopWatch = new Stopwatch();
+        Stopwatch stopWatch = Stopwatch.createUnstarted();
         stopWatch.start();
         for (int i = 0; i < namespaceSpan; i++) {
           byte [] b = format(rd.nextLong());
@@ -706,7 +678,7 @@ public class TestClientNoCluster extends Configured implements Tool {
           p.addColumn(HConstants.CATALOG_FAMILY, b, b);
           mutator.mutate(p);
           if (i % printInterval == 0) {
-            LOG.info("Put " + printInterval + "/" + stopWatch.elapsedMillis());
+            LOG.info("Put " + printInterval + "/" + stopWatch.elapsed(TimeUnit.MILLISECONDS));
             stopWatch.reset();
             stopWatch.start();
           }

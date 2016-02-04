@@ -18,21 +18,6 @@
 
 package org.apache.hadoop.hbase.replication.regionserver;
 
-import java.io.IOException;
-import java.net.ConnectException;
-import java.net.SocketTimeoutException;
-import java.util.ArrayList;
-import java.util.Collections;
-import java.util.List;
-import java.util.concurrent.Callable;
-import java.util.concurrent.CompletionService;
-import java.util.concurrent.ExecutionException;
-import java.util.concurrent.ExecutorCompletionService;
-import java.util.concurrent.Future;
-import java.util.concurrent.LinkedBlockingQueue;
-import java.util.concurrent.ThreadPoolExecutor;
-import java.util.concurrent.TimeUnit;
-
 import com.google.common.annotations.VisibleForTesting;
 import org.apache.commons.lang.StringUtils;
 import org.apache.commons.logging.Log;
@@ -54,6 +39,14 @@ import org.apache.hadoop.hbase.util.Bytes;
 import org.apache.hadoop.hbase.util.FSUtils;
 import org.apache.hadoop.hbase.wal.WAL.Entry;
 import org.apache.hadoop.ipc.RemoteException;
+
+import java.io.IOException;
+import java.net.ConnectException;
+import java.net.SocketTimeoutException;
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.List;
+import java.util.concurrent.*;
 
 /**
  * A {@link org.apache.hadoop.hbase.replication.ReplicationEndpoint}
@@ -322,13 +315,6 @@ public class HBaseInterClusterReplicationEndpoint extends HBaseReplicationEndpoi
     }
     exec.shutdownNow();
     notifyStopped();
-  }
-
-  // is this needed? Nobody else will call doStop() otherwise
-  @Override
-  public State stopAndWait() {
-    doStop();
-    return super.stopAndWait();
   }
 
   @VisibleForTesting

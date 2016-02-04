@@ -17,26 +17,23 @@
  */
 package org.apache.hadoop.hbase.security.visibility;
 
-import java.io.IOException;
-import java.util.ArrayList;
-import java.util.List;
-import java.util.UUID;
-
+import com.google.common.util.concurrent.Service;
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
-import org.apache.hadoop.hbase.ArrayBackedTag;
-import org.apache.hadoop.hbase.Cell;
-import org.apache.hadoop.hbase.Tag;
-import org.apache.hadoop.hbase.TagRewriteCell;
-import org.apache.hadoop.hbase.TagType;
-import org.apache.hadoop.hbase.TagUtil;
+import org.apache.hadoop.hbase.*;
 import org.apache.hadoop.hbase.classification.InterfaceAudience;
 import org.apache.hadoop.hbase.regionserver.wal.WALEdit;
 import org.apache.hadoop.hbase.replication.ReplicationEndpoint;
 import org.apache.hadoop.hbase.replication.WALEntryFilter;
 import org.apache.hadoop.hbase.wal.WAL.Entry;
 
-import com.google.common.util.concurrent.ListenableFuture;
+import java.io.IOException;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.UUID;
+import java.util.concurrent.Executor;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.TimeoutException;
 
 @InterfaceAudience.Private
 public class VisibilityReplicationEndpoint implements ReplicationEndpoint {
@@ -134,13 +131,33 @@ public class VisibilityReplicationEndpoint implements ReplicationEndpoint {
   }
 
   @Override
-  public ListenableFuture<State> start() {
-    return delegator.start();
+  public Service startAsync() {
+    return delegator.startAsync();
   }
 
   @Override
-  public State startAndWait() {
-    return delegator.startAndWait();
+  public void addListener(Listener listener, Executor executor) {
+    delegator.addListener(listener, executor);
+  }
+
+  @Override
+  public void awaitRunning() {
+    delegator.awaitRunning();
+  }
+
+  @Override
+  public void awaitRunning(long timeout, TimeUnit unit) throws TimeoutException {
+    delegator.awaitRunning(timeout, unit);
+  }
+
+  @Override
+  public void awaitTerminated(long timeout, TimeUnit unit) throws TimeoutException {
+    delegator.awaitTerminated(timeout, unit);
+  }
+
+  @Override
+  public Throwable failureCause() {
+    return delegator.failureCause();
   }
 
   @Override
@@ -149,13 +166,13 @@ public class VisibilityReplicationEndpoint implements ReplicationEndpoint {
   }
 
   @Override
-  public ListenableFuture<State> stop() {
-    return delegator.stop();
+  public Service stopAsync() {
+    return delegator.stopAsync();
   }
 
   @Override
-  public State stopAndWait() {
-    return delegator.stopAndWait();
+  public void awaitTerminated() {
+    delegator.awaitTerminated();
   }
 
 }

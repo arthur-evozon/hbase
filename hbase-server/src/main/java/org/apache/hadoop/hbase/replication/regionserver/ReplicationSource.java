@@ -18,22 +18,8 @@
  */
 package org.apache.hadoop.hbase.replication.regionserver;
 
-import java.io.EOFException;
-import java.io.FileNotFoundException;
-import java.io.IOException;
-import java.util.ArrayList;
-import java.util.Collection;
-import java.util.Comparator;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
-import java.util.UUID;
-import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.PriorityBlockingQueue;
-import java.util.concurrent.TimeUnit;
-import java.util.concurrent.atomic.AtomicInteger;
-import java.util.concurrent.atomic.AtomicLong;
-
+import com.google.common.collect.Lists;
+import com.google.common.util.concurrent.Service;
 import org.apache.commons.lang.StringUtils;
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
@@ -41,37 +27,26 @@ import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.FileStatus;
 import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.Path;
-import org.apache.hadoop.hbase.Cell;
-import org.apache.hadoop.hbase.CellUtil;
-import org.apache.hadoop.hbase.HBaseConfiguration;
-import org.apache.hadoop.hbase.HConstants;
-import org.apache.hadoop.hbase.Stoppable;
-import org.apache.hadoop.hbase.TableName;
+import org.apache.hadoop.hbase.*;
 import org.apache.hadoop.hbase.classification.InterfaceAudience;
 import org.apache.hadoop.hbase.protobuf.generated.WALProtos.BulkLoadDescriptor;
 import org.apache.hadoop.hbase.protobuf.generated.WALProtos.StoreDescriptor;
 import org.apache.hadoop.hbase.regionserver.wal.WALEdit;
-import org.apache.hadoop.hbase.replication.ChainWALEntryFilter;
-import org.apache.hadoop.hbase.replication.ReplicationEndpoint;
-import org.apache.hadoop.hbase.replication.ReplicationException;
-import org.apache.hadoop.hbase.replication.ReplicationPeers;
-import org.apache.hadoop.hbase.replication.ReplicationQueueInfo;
-import org.apache.hadoop.hbase.replication.ReplicationQueues;
-import org.apache.hadoop.hbase.replication.SystemTableWALEntryFilter;
-import org.apache.hadoop.hbase.replication.WALEntryFilter;
-import org.apache.hadoop.hbase.util.Bytes;
-import org.apache.hadoop.hbase.util.CancelableProgressable;
-import org.apache.hadoop.hbase.util.EnvironmentEdgeManager;
-import org.apache.hadoop.hbase.util.FSUtils;
-import org.apache.hadoop.hbase.util.LeaseNotRecoveredException;
-import org.apache.hadoop.hbase.util.Threads;
+import org.apache.hadoop.hbase.replication.*;
+import org.apache.hadoop.hbase.util.*;
 import org.apache.hadoop.hbase.wal.DefaultWALProvider;
 import org.apache.hadoop.hbase.wal.WAL;
 import org.apache.hadoop.hbase.wal.WALKey;
 
-import com.google.common.collect.Lists;
-import com.google.common.util.concurrent.ListenableFuture;
-import com.google.common.util.concurrent.Service;
+import java.io.EOFException;
+import java.io.FileNotFoundException;
+import java.io.IOException;
+import java.util.*;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.PriorityBlockingQueue;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicInteger;
+import java.util.concurrent.atomic.AtomicLong;
 
 /**
  * Class that handles the source of a replication stream.
@@ -263,7 +238,7 @@ public class ReplicationSource extends Thread
     metrics.clear();
     if (replicationEndpoint.state() == Service.State.STARTING
         || replicationEndpoint.state() == Service.State.RUNNING) {
-      replicationEndpoint.stopAndWait();
+      replicationEndpoint.stopAsync().awaitTerminated();
     }
   }
 
@@ -273,7 +248,7 @@ public class ReplicationSource extends Thread
     this.sourceRunning = true;
     try {
       // start the endpoint, connect to the cluster
-      Service.State state = replicationEndpoint.start().get();
+      Service.State state = replicationEndpoint.startAsync().state();
       if (state != Service.State.RUNNING) {
         LOG.warn("ReplicationEndpoint was not started. Exiting");
         uninitialize();
@@ -394,9 +369,9 @@ public class ReplicationSource extends Thread
       worker.setWorkerRunning(false);
       worker.interrupt();
     }
-    ListenableFuture<Service.State> future = null;
+    Service future = null;
     if (this.replicationEndpoint != null) {
-      future = this.replicationEndpoint.stop();
+      future = this.replicationEndpoint.stopAsync();
     }
     if (join) {
       for (ReplicationSourceWorkerThread worker : workers) {
@@ -405,7 +380,7 @@ public class ReplicationSource extends Thread
       }
       if (future != null) {
         try {
-          future.get();
+          future.awaitTerminated();
         } catch (Exception e) {
           LOG.warn("Got exception:" + e);
         }

@@ -1522,7 +1522,7 @@ public class HRegion implements HeapSize, PropagatingConfigurationObserver, Regi
         this.metricsRegion.close();
       }
       if (this.metricsRegionWrapper != null) {
-        Closeables.closeQuietly(this.metricsRegionWrapper);
+        Closeables.close(this.metricsRegionWrapper,true);
       }
       // stop the Compacted hfile discharger
       if (this.compactedFileDischarger != null) this.compactedFileDischarger.cancel(true);
